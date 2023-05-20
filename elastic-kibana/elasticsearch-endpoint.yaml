@@ -1,0 +1,56 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: elasticsearch
+spec:
+  ports:
+  - port: 9200
+    targetPort: 9200
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: elasticsearch
+subsets:
+  - addresses:
+    - ip: 10.15.133.21
+    ports:
+    - port: 9200
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: elasticsearch2
+spec:
+  ports:
+  - port: 9200
+    targetPort: 9200
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: elasticsearch2
+subsets:
+  - addresses:
+    - ip: 10.15.133.22
+    ports:
+    - port: 9200
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: elasticsearch3
+spec:
+  ports:
+  - port: 9200
+    targetPort: 9200
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: elasticsearch3
+subsets:
+  - addresses:
+    - ip: 10.15.133.23
+    ports:
+    - port: 9200

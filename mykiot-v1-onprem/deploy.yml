@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: mykiot-prod-v2
+  name: mykiot-sync-kafka-config
+  labels:
+    app: mykiot-sync-kafka-config
+data:
+  QUEUE_DOMAIN: "https://queue-web.mykiot.vn/api/"
+  BROKER_LIST: "42.117.246.79:9091,42.117.246.79:9093,42.117.246.79:9095"
+  TOPIC: "WebhookMyKiot"
+  SSL_CONNECT: "false"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: mykiot-prod-v2
+  name: mykiot-sync-kafka
+  labels:
+    app: mykiot-sync-kafka
+    version: v1
+spec:
+  selector:
+    matchLabels:
+      app: mykiot-sync-kafka
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: mykiot-sync-kafka
+        version: v1
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    spec:
+      containers:
+        - name: mykiot-sync-kafka
+          image: docker.citigo.com.vn/mykiot-v2/devops/mykiot-sync-kafka:v1
+          imagePullPolicy: IfNotPresent
+#          resources:
+#            requests:
+#              cpu: 100m
+#              memory: 64Mi
+#            limits:
+#              cpu: 200m
+#              memory: 128Mi
+          ports:
+            - containerPort: 6565
+          envFrom:
+            - configMapRef:
+                name: mykiot-sync-kafka-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: mykiot-prod-v2
+  name: mykiot-sync-kafka
+  labels:
+    app: mykiot-sync-kafka
+    service: mykiot-sync-kafka
+spec:
+  type: ClusterIP
+  selector:
+    app: mykiot-sync-kafka
+  ports:
+    - port: 6565
+      targetPort: 6565
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: mykiot-prod-v2
+  name: mykiot-sync-kafka
+spec:
+  maxReplicas: 5
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mykiot-sync-kafka
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---

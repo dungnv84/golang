@@ -1,0 +1,32 @@
+Để triển khai một Pod trong Kubernetes với thời gian chậm hơn 15 phút so với hệ thống, bạn có thể sử dụng một initContainer 
+để cài đặt và đồng bộ hóa thời gian trước khi khởi động container chính.
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-container
+    image: my-image
+    # Các cấu hình container chính
+  initContainers:
+  - name: set-time
+    image: ubuntu:latest
+    command: ["/bin/sh", "-c", "apt-get update && apt-get install -y tzdata && cp /etc/localtime /tmp/localtime && date --set='15 minutes ago' && cp /tmp/localtime /etc/localtime"]
+    volumeMounts:
+    - name: localtime-volume
+      mountPath: /etc/localtime
+    securityContext:
+      privileged: true
+  volumes:
+  - name: localtime-volume
+    hostPath:
+      path: /etc/localtime
+
+
+initContainers: Danh sách các initContainer sẽ được triển khai trước khi container chính được khởi động.
+privileged: cho phép initContainer chạy với quyền root.
+
+

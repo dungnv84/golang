@@ -1,0 +1,13 @@
+# This file is where you define your pipelines. You can define multiple.
+# For more information on multiple pipelines, see the documentation:
+# https://www.elastic.co/guide/en/logstash/current/multiple-pipelines.html
+
+- pipeline.id: laravel-log
+  path.config: "/usr/share/logstash/pipeline/laravel-log.conf"
+  pipeline.workers: 2
+- pipeline.id: audit-trail
+  path.config: "/usr/share/logstash/pipeline/audit-trail.conf"
+  pipeline.workers: 1
+- pipeline.id: search
+  path.config: "/usr/share/logstash/pipeline/search.conf"
+  pipeline.workers: 2

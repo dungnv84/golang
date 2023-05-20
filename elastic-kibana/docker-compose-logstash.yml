@@ -1,0 +1,27 @@
+services:
+  logstash:
+    image: docker.citigo.com.vn/templates/logstash:7.7.1
+    container_name: logstash
+    configs:
+      - source: logstash-config
+        target: /usr/share/logstash/config/logstash.yml
+      - source: logstash-pipeline
+        target: /usr/share/logstash/config/pipelines.yml
+    volumes:
+      - ./audit-trail.conf:/usr/share/logstash/pipeline/audit-trail.conf
+      - ./laravel-log.conf:/usr/share/logstash/pipeline/laravel-log.conf
+      - ./search.conf:/usr/share/logstash/pipeline/search.conf
+      - logstash:/usr/share/logstash/data
+    ports:
+      - 5044:5044
+      - 5045:5045
+      - 5046:5046
+
+volumes:
+  logstash:
+
+configs:
+  logstash-config:
+    file: $PWD/logstash.yml
+  logstash-pipeline:
+    file: $PWD/pipelines.yml

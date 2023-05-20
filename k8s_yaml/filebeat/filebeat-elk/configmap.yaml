@@ -1,0 +1,262 @@
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+filebeat.autodiscover:
+  providers:
+    - type: kubernetes
+      node: ${NODE_NAME}
+      hints.enabled: true
+      hints.default_config.enabled: false
+      hints.default_config.path: ${path.config}/default-config.yml
+
+output.elasticsearch:
+  hosts: ['<elasticsearch-host>:<port>']
+  username: '${ES_USERNAME}'
+  password: '${ES_PASSWORD}'
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: main-container
+    image: my-image
+    # Main container configuration
+  - name: filebeat-sidecar
+    image: docker.elastic.co/beats/filebeat:7.12.1
+    args: [
+      "-c", "/etc/filebeat/filebeat.yml",
+      "-e"
+    ]
+    volumeMounts:
+      - name: config-volume
+        mountPath: /etc/filebeat
+      - name: varlog
+        mountPath: /var/log
+    env:
+      - name: NODE_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
+      - name: ES_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: es-credentials
+            key: username
+      - name: ES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: es-credentials
+            key: password
+  volumes:
+    - name: config-volume
+      configMap:
+        name: filebeat-config
+    - name: varlog
+      hostPath:
+        path: /var/log
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-deployment
+  labels:
+    app: hello-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-pod
+  template:
+    metadata:
+      name: hello-pod
+      labels:
+        app: hello-pod
+    spec:
+      containers:
+        - name: hello-world
+          image: nginxdemos/hello
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-logs
+              mountPath: var/log/nginx/
+        - name: filebeat-sidecar
+          image: docker.elastic.co/beats/filebeat:7.5.0
+          volumeMounts:
+            - name: nginx-logs
+              mountPath: var/log/nginx/
+            - name: filebeat-config
+              mountPath: /usr/share/filebeat/filebeat.yml
+              subPath: filebeat.yml 
+      volumes:
+        - name: nginx-logs
+        - name: filebeat-config
+          configMap:
+            name: filebeat-configmap
+            items:
+              - key: filebeat.yml
+                path: filebeat.yml
+
+--- # configmap.yaml
+filebeat:
+  config:
+    modules:
+      path: /usr/share/filebeat/modules.d/*.yml
+      reload:
+        enabled: true
+  modules:
+  - module: nginx
+    access:
+      var.paths: ["/var/log/nginx/access.log*"]
+    error:
+      var.paths: ["/var/log/nginx/error.log*"]
+output:
+  elasticsearch:
+    hosts: ["elasticsearch:9200"]           
+
+--- 
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+filebeat.autodiscover:
+  providers:
+    - type: kubernetes
+      node: ${NODE_NAME}
+      hints.enabled: true
+      hints.default_config.enabled: false
+      hints.default_config.path: ${path.config}/default-config.yml
+
+output.loki:
+  hosts: ['10.24.132.1:3100']
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-configmap
+  namespace: new-mykiot-dev
+data:
+  filebeat.yml: |
+    filebeat:
+      config:
+        modules:
+          path: /usr/share/filebeat/modules.d/*.yml
+          reload:
+            enabled: true
+      modules:
+      - module: nginx
+        access:
+          var.paths: ["/var/log/nginx/access.log*"]
+        error:
+          var.paths: ["/var/log/nginx/error.log*"]
+    output:
+      elasticsearch:
+        hosts: ["10.24.132.1:9200"]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-deployment
+  labels:
+    app: hello-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-pod
+  template:
+    metadata:
+      name: hello-pod
+      labels:
+        app: hello-pod
+    spec:
+      containers:
+        - name: hello-world
+          image: nginxdemos/hello
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-logs
+              mountPath: var/log/nginx/
+        - name: filebeat-sidecar
+          image: docker.elastic.co/beats/filebeat:7.5.0
+          volumeMounts:
+            - name: nginx-logs
+              mountPath: var/log/nginx/
+            - name: filebeat-config
+              mountPath: /usr/share/filebeat/filebeat.yml
+              subPath: filebeat.yml 
+      volumes:
+        - name: nginx-logs
+        - name: filebeat-config
+          configMap:
+            name: filebeat-configmap
+            items:
+              - key: filebeat.yml
+                path: filebeat.yml
+
+        additionalContainers:
+          filebeat:
+            image: docker.citigo.com.vn/templates/filebeat:7.17.7
+            args:
+              - "-c"
+              - "/etc/filebeat.yml"
+              - "-e"
+            env:
+              - name: NODE_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: spec.nodeName
+              - name: NODE_IP
+                valueFrom:
+                  fieldRef:
+                    fieldPath: status.hostIP
+            securityContext:
+              runAsUser: 0
+            resources:
+              limits:
+                memory: 200Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+            volumeMounts:
+            - name: filebeat-config
+              mountPath: /etc/filebeat.yml
+              readOnly: true
+              subPath: filebeat.yml
+#            - name: laravel-logs
+#              mountPath: /var/www/html/storage/logs                  
+        persistence:
+          config:
+            enabled: true
+            name: filebeat-config            
+            type: configMap
+            mountPath: /etc/filebeat.yml
+            readOnly: true
+#          laravel-logs:
+#            enabled: true
+#            name: laravel-logs
+#            type: emptyDir
+#            mountPath: "/var/www/html/storage/logs"
+
+
+
+server {
+        listen 80 ;
+        listen [::]:80 ;
+        root /var/www/vietdung/html;
+        index index.html index.html;
+        server_name vietdung.com;
+        add_header Cache-Control no-store;
+        location / {
+            proxy_pass http://192.168.50.11:8000
+        }
+    }

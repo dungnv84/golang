@@ -1,0 +1,91 @@
+# logstash.yml
+http.host: "0.0.0.0"
+xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# logstash.conf
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+  if "error" in [message] {
+    mutate {
+      add_field => { "severity" => "error" }
+    }
+    grok {
+      match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:loglevel} \[%{DATA:service}\] %{GREEDYDATA:message}" }
+    }
+  }
+}
+
+output {
+  if [severity] == "error" {
+    http {
+      url => "https://hooks.slack.com/services/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"
+      format => "{ \"text\": \"%{message}\" }"
+      http_method => "post"
+    }
+  }
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "logstash-%{+YYYY.MM.dd}"
+  }
+}
+
+# conffigmap
+kubectl create configmap logstash-config --from-file=logstash.yml --from-file=logstash.conf
+
+# 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:7.13.2
+        volumeMounts:
+        - name: config-volume
+          mountPath: /usr/share/logstash/config/logstash.yml
+          subPath: logstash.yml
+        - name: config-volume
+          mountPath: /usr/share/logstash/pipeline/logstash.conf
+          subPath: logstash.conf
+        ports:
+        - containerPort: 5044
+        - containerPort: 9600
+        volumeMounts:
+        - name: log-volume
+          mountPath: /usr/share/logstash/data
+      volumes:
+      - name: config-volume
+        configMap:
+          name: logstash-config
+      - name: log-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+spec:
+  selector:
+    app: logstash
+  ports:
+  - name: beats
+    port: 5044
+    targetPort: 5044
+  - name: monitoring
+    port: 9600
+    targetPort: 9600

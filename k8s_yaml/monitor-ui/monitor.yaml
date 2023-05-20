@@ -1,0 +1,44 @@
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: grafana-mykiotdev
+  namespace: monitoring  
+spec:
+  ports:
+  - port: 8088
+    protocol: TCP
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: grafana-mykiotdev
+  namespace: monitoring  
+subsets:
+  - addresses:
+    - ip: 10.24.132.1
+    ports:
+    - port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: grafana-mykiotdev
+  namespace: monitoring
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: monitor-dev.mykiot.vn
+    http:
+      paths:
+      - backend:
+          service:
+            name: grafana-mykiotdev
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+

@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    meta.helm.sh/release-name: mykiot-frontend-page-builder
+    meta.helm.sh/release-namespace: mykiot-prod-v2
+    nginx.ingress.kubernetes.io/cors-allow-headers: X-Real-IP,X-AGENT,X-REFERER,X-AUTH-TOKEN,Accept-Encoding,channel,X-XSS-Protection,X-Content-Type-Options,Strict-Transport-Security,Content-Type,Aut>
+      store-id, auth-page-builder, host-custom, mk-frontend, JWTToken-PB, jwttoken,
+      trial_test
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+  creationTimestamp: "2023-03-07T11:33:52Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: mykiot-frontend-page-builder
+    helm.sh/chart: chart
+    helm.sh/heritage: Helm
+    helm.sh/release: mykiot-frontend-page-builder
+  name: mykiot-frontend-page-builder
+  namespace: mykiot-prod-v2
+  resourceVersion: "5799908"
+  uid: ea84f556-c61f-4bff-9186-0d4ea8bf51bc
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: frontend.mykiot.vn
+    http:
+      paths:
+      - backend:
+          service:
+            name: mykiot-frontend-page-builder
+            port:
+              number: 8000
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - frontend.mykiot.vn
+    secretName: tls-mykiot
+status:
+  loadBalancer:
+    ingress:
+    - ip: 10.15.22.249

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: maxscale
+  namespace: maxscale
+  labels:
+    app.kubernetes.io/name: maxscale
+
+---
+
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: maxscale-data
+#   labels:
+#     app.kubernetes.io/name: maxscale
+# spec:
+#   accessModes:
+#     - ReadWriteMany
+#   resources:
+#     requests:
+#       storage: 1Gi
+#   storageClassName: nfs-csi-kiotpro
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxscale
+  namespace: maxscale
+  labels:
+    app.kubernetes.io/name: maxscale
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: maxscale
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: maxscale
+    spec:
+      terminationGracePeriodSeconds: 300
+      containers:
+      - name: maxscale
+        image: mariadb/maxscale:6.4.5
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8989
+          name: http
+        - containerPort: 3306
+          name: mysql
+        resources:
+          requests:
+            memory: 100Mi
+        volumeMounts:
+        - name: tz-config
+          mountPath: /etc/localtime
+          readOnly: true
+        - mountPath: /tmp
+          name: tmp-dir
+        - name: maxscale-data
+          mountPath: /var/lib/maxscale
+      volumes:
+      - name: tz-config
+        hostPath:
+          path: /usr/share/zoneinfo/Asia/Ho_Chi_Minh
+      - emptyDir: {}
+        name: tmp-dir
+      - name: maxscale-data
+        hostPath:
+          path: /data/maxscale
+          type: DirectoryOrCreate
+      initContainers:
+      - name: fix-the-volume-permission
+        image: busybox
+        command:
+        - sh
+        - -c
+        - chown -R 998:996 /var/lib/maxscale
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: maxscale-data
+          mountPath: /var/lib/maxscale
+         
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: maxscale
+  namespace: maxscale
+  labels:
+    app.kubernetes.io/name: maxscale
+spec:
+  type: LoadBalancer
+  allocateLoadBalancerNodePorts: false
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: http
+    port: 8989
+    protocol: TCP
+    targetPort: 8989
+  - name: mysql
+    port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    app.kubernetes.io/name: maxscale

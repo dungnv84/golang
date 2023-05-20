@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    meta.helm.sh/release-namespace: default
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+  generation: 1
+  labels:
+    app.kubernetes.io/name: kibana
+    helm.sh/chart: chart
+    helm.sh/heritage: Helm
+  name: kibana
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: elasticsearch.mykiot.vn
+    http:
+      paths:
+      - backend:
+          service:
+            name: kibana
+            port:
+              number: 5601
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - elasticsearch.mykiot.vn
+    secretName: tls-mykiot        
+
